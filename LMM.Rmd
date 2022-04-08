@@ -1,0 +1,105 @@
+---
+title: "LEC 19 LMM"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(nlme)
+library(ggplot2)
+library (lattice)
+```
+
+## LMM
+
+this file contains code for linear mixed effects models of the orthodontic example
+
+* Note: we use the R pacakge nlme here. An alternative is the lme4 package. The lmer function in lme4 is more suitable for modeling multiple non-nested random effects
+
+```{r read}
+Orthodont <- read.table("orthodontic.dat", header = TRUE)
+head(Orthodont)
+```
+
+## NLME
+
+```{r model}
+Orth.new <- groupedData(distance ~ age | child, data = as.data.frame(Orthodont)) # not necessary for lme
+
+head(Orth.new)
+
+OrthFem <- subset(Orth.new, male == 0)
+OrthFem[1:5,]
+
+plot(OrthFem) # default: ordered by max resp of each child
+
+ggplot(Orth.new, aes(age, distance, group=child)) + geom_line()
+```
+
+## fit a random intercept model
+
+```{r random_intercept}
+LMM1 <- lme (distance ~ age, random = ~1 | child,  data = OrthFem, method='REML') 
+summary (LMM1) # pay attention to: random effects, fixed effects, 
+#
+VarCorr(LMM1) # covariance estimates for random effects and variance for residuals
+LMM1$sigma # std for residuals
+vcov(LMM1) # covariance for fixed effects estimates (inv fisher info)
+#
+fixed.effects(LMM1) # fixed effects coeff 
+random.effects(LMM1) # ordered random effects, BLUP (in this case, just b_i)
+fitted(LMM1) # fixed+random for each subj in each visit
+OrthFem$distance-fitted(LMM1) # residuals
+LMM1$residuals
+```
+
+### For subject 1
+
+```{r}
+plot(OrthFem$age[1:4],OrthFem$distance[1:4],type='b',ylim=c(19,26),col=26) # original data for subj1
+points(OrthFem$age[1:4],fixed.effects(LMM1)[1]+fixed.effects(LMM1)[2]*OrthFem$age[1:4], pch=4,col=26) # fixed effect model
+lines(OrthFem$age[1:4],fitted(LMM1)[1:4], lty=5,type='b',pch=4,col=26) # mixed effect fits
+random.effects(LMM1) # check random effects b_i for the first subj: -1.229
+```
+
+### For subject 2
+
+```{r}
+plot(OrthFem$age[5:8],OrthFem$distance[5:8],type='b',col=20) # original data for subj2
+points(OrthFem$age[5:8],fixed.effects(LMM1)[1]+fixed.effects(LMM1)[2]*OrthFem$age[5:8], pch=4,col=20)
+lines(OrthFem$age[5:8],fitted(LMM1)[5:8], lty=5,type='b',pch=4,col=20)
+random.effects(LMM1) #check random effects b_i for the second subj: 0.340
+```
+### check equivalence to marginal model with compound symmetry correlation structure
+
+```{r}
+# check equivalence to marginal model with compound symmetry correlation structure
+summary(gls(distance~age, OrthFem, correlation=corCompSymm(form = ~ 1 |child), method="REML"))
+# check rho==sigma_b^2/(sigma_b^2+sigma^2)
+```
+
+## compare models (likelihood ratio test)
+```{r}
+LMM.1 <- lme (distance ~ age, random = ~ 1 | child,  data = OrthFem, method='ML') # do NOT use REML for likelihood ratio
+LMM.2 <- lme (distance ~ 1, random = ~ 1 | child,  data = OrthFem, method='ML')
+anova(LMM.2,LMM.1) 
+```
+## fit a random intercept and slope model
+
+```{r}
+LMM2 <- lme (distance ~ age, random = ~ 1+ age | child, data = OrthFem)
+summary (LMM2) 
+```
+
+### Plot for subject 1 and 2
+```{r}
+#
+plot(OrthFem$age[1:4],OrthFem$distance[1:4],type='b',ylim=c(19,26),col=26) # original data for child1
+points(OrthFem$age[1:4],fixed.effects(LMM2)[1]+fixed.effects(LMM2)[2]*OrthFem$age[1:4], pch=4,col=26)
+lines(OrthFem$age[1:4],fitted(LMM2)[1:4], lty=5,type='b',pch=4,col=26)
+random.effects(LMM2) # check BLUP 
+lines(OrthFem$age[5:8],OrthFem$distance[5:8],type='b',col=20) 
+points(OrthFem$age[5:8],fixed.effects(LMM2)[1]+fixed.effects(LMM2)[2]*OrthFem$age[5:8], pch=4,col=20)
+lines(OrthFem$age[5:8],fitted(LMM2)[5:8], lty=5,type='b',pch=4,col=20)
+```
+

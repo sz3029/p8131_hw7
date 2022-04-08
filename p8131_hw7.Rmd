@@ -1,0 +1,112 @@
+---
+title: "P8131 HW7"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(nlme)
+library(ggplot2)
+library (lattice)
+library(tidyverse)
+```
+
+# 1. The relationship between pitch and politeness
+
+## (a) Exploratory analysis: provide boxplots to show the relation between gen- der/attitude and pitch (ignoring different scenarios).
+
+```{r a_read, message=FALSE}
+df <- read_csv("HW7-politeness_data.csv", col_names = TRUE)
+# gender v.s. frequency
+df %>%
+  ggplot(aes(x = gender, y = frequency)) + 
+  geom_boxplot()
+# attitudes v.s. frequency
+df %>%
+  ggplot(aes(x = attitude, y = frequency)) + 
+  geom_boxplot()
+```
+
+The distributions of pitch (Hz) by gender are different. With female subjects, the pitch has a average of 250 Hz, and with male subjects the average pitch is only about 125 Hz.The distributions of pitch (Hz) by attitude are also different. Informal registers tend to have a higher average pitch compares with that of formal registers. 
+
+## (d) Fit a mixed effects model with random intercepts for different subjects (gender and attitude being the fixed effects).
+
+### Fit the model with random intercepts
+```{r b_model}
+LMM.rI <- lme (frequency ~ gender + attitude, random = ~1 | subject,  data = df, method ='REML') 
+summary (LMM.rI) 
+```
+
+### Covariance matrix for a subject $Y_i$
+```{r b_cov}
+VarCorr(LMM.rI) # covariance estimates for random effects and variance for residuals
+```
+
+Therefore variance of residuals is $\sigma^2 = 847.7049$, and the subject-specific variance for random effects is $\sigma_b^2=598.1953$. And there are 14 observations for each subject. Therefore $\sigma^2 + \sigma_b^2 = 1445.9$ So the covariance matrix becomes:
+
+$$\begin{bmatrix}
+1445.9& 598.1953& ...& 598.1953\\
+598.1953& 1445.9& ... &598.1953 \\
+598.1953& 598.1953& ... &598.1953 \\
+...&\\
+598.1953& 598.1953& ...&598.1953 
+\end{bmatrix}_{14\cdot14}$$
+
+### Covariance matrix for the estimates of fixed effects
+```{r b_cov_fixed}
+vcov(LMM.rI) # covariance for fixed effects estimates (inv fisher info)
+#
+#fixed.effects(LMM.rI) # fixed effects coeff 
+```
+
+### BLUP for Subject i and Residuals
+```{r BLUP}
+# ordered random effects, BLUP (in this case, just b_i)
+random.effects(LMM.rI)
+# fixed+random residuals
+LMM.rI$residuals
+```
+
+## (c) Fit a mixed effects model with intercepts for different subjects 
+
+$H_0:$ Model 2 (larger model with the interaction term) is no better than Model 1 (smaller model)
+
+$H_1:$ Model 2 (larger model with the interaction term) has better performance than Model 1 (smaller model)
+
+```{r c_model}
+# do NOT use REML for likelihood ratio
+LMM.2 <- lme(frequency ~ gender + attitude + gender*attitude, random = ~1 | subject,  data = df, method = 'ML')
+summary(LMM.2)
+LMM.1 <- lme(frequency ~ gender + attitude, random = ~1 | subject,  data = df, method = 'ML') 
+# Compare
+anova(LMM.1, LMM.2)
+```
+
+The p-value of the test is $0.2392$, so we fail to reject the null hypothesis. We conclude that the interaction term is not significantly associated with pitch.
+
+## (d) Fit a mixed effects model with random intercepts for different subjects and scenrio (gender and attitude being the fixed effects).
+
+### Fit the model with random intercepts
+```{r d_model}
+# grouped data
+LMM.3 <- lme4::lmer(frequency ~ gender + attitude + (1|subject) + (1|scenario), 
+                    data = df, REML = TRUE) 
+summary(LMM.3)
+```
+
+### Covariance matrix for a subject $Y_i$
+The variance of residuals is $\sigma^2 = 637.8$, and the subject-specific variance for random effects of group `scenario` is $\sigma_{b_{1i}}^2=224.5$, and that of group `subject` $\sigma_{b_{2i}}^2=613.2$. And there are 14 observations for each subject. Therefore $Var[Y_i] = E[(Y_i - \mu)^2] = E[(b_{1i} + b_{2i} + \epsilon_{i})^2] = \sigma^2 + \sigma_{b_{1i}}^2 + \sigma_{b_{2i}}^2= 1475.5$, $Cov[Y_{ij}, Y_{ik}] = 837.7$
+
+So the covariance matrix becomes:
+
+$$\begin{bmatrix}
+1475.5& 837.7& 837.7& ...& 837.7\\
+837.7& 1475.5& 837.7& ...& 837.7 \\
+837.7& 837.7& ...&\\
+...&
+...& 837.7& 837.7& 1475.5
+\end{bmatrix}_{14\cdot14}$$
+
+### Interpretation of attitude coefficient
+
+With the gender of the subject known, formal registers have a lower average pitch of 20.002 Hz comparing with the average pitch of informal register.
