@@ -36,6 +36,7 @@ The distributions of pitch (Hz) by gender are different. With female subjects, t
 LMM.rI <- lme (frequency ~ gender + attitude, random = ~1 | subject,  data = df, method ='REML') 
 summary (LMM.rI) 
 ```
+The mixed effect model is $$Pitch_{ij} = 256.987 - 108.798(Gender=M) - 20.002(Attitude=Pol) + b_{i1} + b_{i2} + \epsilon_{ij}$$
 
 ### Covariance matrix for a subject $Y_i$
 ```{r b_cov}
@@ -94,18 +95,42 @@ LMM.3 <- lme4::lmer(frequency ~ gender + attitude + (1|subject) + (1|scenario),
 summary(LMM.3)
 ```
 
-### Covariance matrix for a subject $Y_i$
-The variance of residuals is $\sigma^2 = 637.8$, and the subject-specific variance for random effects of group `scenario` is $\sigma_{b_{1i}}^2=224.5$, and that of group `subject` $\sigma_{b_{2i}}^2=613.2$. And there are 14 observations for each subject. Therefore $Var[Y_i] = E[(Y_i - \mu)^2] = E[(b_{1i} + b_{2i} + \epsilon_{i})^2] = \sigma^2 + \sigma_{b_{1i}}^2 + \sigma_{b_{2i}}^2= 1475.5$, $Cov[Y_{ij}, Y_{ik}] = 837.7$
+The mixed effect model is $$Pitch_{ijk} = 256.987 - 108.798(Gender=M)_i - 20.002(Attitude=Pol)_{ij} + b_{ji} + b_{jk} + \epsilon_{ijk}$$
+where $b_{0i}$ and $b_{0k}$ are random effect terms for `subject` and `scenario`, and $\epsilon_{ijk}$ is the residual. Therefore $i \in {F1, F2, F3, M3, M4, M7}$, $j \in {0,1}$, and $k \in 1, 2, .., 7$. Note that $b_{ji}$ is the same for all j's, and $b_{jk}$ is the same for all j's.
 
-So the covariance matrix becomes:
+### Covariance matrix for a subject $Y_i$
+
+The variance of residuals is $\sigma^2 = 637.8$, and the subject-specific variance for random effects of group `subject` is $\sigma_{b_{ji}}^2=613.2$, and that of group `scenario` $\sigma_{b_{jk}}^2=224.5$.
+
+The variance of $Y_i$ is therefore:
 
 $$\begin{bmatrix}
-1475.5& 837.7& 837.7& ...& 837.7\\
-837.7& 1475.5& 837.7& ...& 837.7 \\
-837.7& 837.7& ...&\\
-...&
-...& 837.7& 837.7& 1475.5
+A_1& A_2&\\
+A_2& A_1
 \end{bmatrix}_{14\cdot14}$$
+
+where $A_1$ and $A_2$ are symmetric $7 \cdot 7$ matrices:
+
+$$A_1 = \begin{bmatrix}
+Var[Y_{ijk}]& Cov(Y_{ijk}, Y_{ijm})& Cov(Y_{ijk}, Y_{ijm})& ...& Cov(Y_{ijk}, Y_{ijm})\\
+Cov(Y_{ijk}, Y_{ijm})& Var[Y_{ijk}]& Cov(Y_{ijk}, Y_{ijm})& ...& Cov(Y_{ijk}, Y_{ijm})\\
+...&  \\
+...& & & Cov(Y_{ijk}, Y_{ijm})& Var[Y_{ijk}]
+\end{bmatrix}_{7\cdot7}$$
+
+$$A_2 = \begin{bmatrix}
+Cov(Y_{ijk}, Y_{ink})& Cov(Y_{ijk}, Y_{inm})& Cov(Y_{ijk}, Y_{inm})& ...& Cov(Y_{ijk}, Y_{inm})\\
+Cov(Y_{ijk}, Y_{inm})& Cov(Y_{ijk}, Y_{ink})& Cov(Y_{ijk}, Y_{inm})& ...& Cov(Y_{ijk}, Y_{inm})\\
+...&  \\
+...& & & Cov(Y_{ijk}, Y_{inm})& Cov(Y_{ijk}, Y_{ink})
+\end{bmatrix}_{7\cdot7}$$
+
+The values are calculated as:
+
+$$Var[Y_{ijk}] = E[(Y_{ijk} - \mu)^2] = E[(b_{ji} + b_{jk} + \epsilon_{ijk})^2] = \sigma^2 + \sigma_{b_{ji}}^2 + \sigma_{b_{jk}}^2= 1475.5$$
+$$Cov(Y_{ijk}, Y_{ijm}) = E[(b_{ji}+b_{jk}+\epsilon_{ijk})(b_{ji}+b_{jm}+\epsilon_{ijm})] = \sigma_{b_{ji}}^2 = 613.2$$
+$$Cov(Y_{ijk}, Y_{ink}) = E[(b_{ji}+b_{jk}+\epsilon_{ijk})(b_{ni}+b_{nk}+\epsilon_{ink})] = \sigma_{b_{ji}}^2 + \sigma_{b_{jk}}^2 = 837.7$$
+$$Cov(Y_{ijk}, Y_{inm}) = E[(b_{ji}+b_{jk}+\epsilon_{ijk})(b_{ni} + b_{nm}+\epsilon_{inm})] =  \sigma_{b_{ji}}^2 = 613.2$$
 
 ### Interpretation of attitude coefficient
 
